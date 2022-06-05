@@ -1,14 +1,13 @@
 """AutoImport module for rope."""
 from __future__ import annotations
 
-import pathlib
 import sqlite3
 import sys
 from collections import OrderedDict
 from concurrent.futures import Future, ProcessPoolExecutor, as_completed
 from itertools import chain
 from pathlib import Path
-from typing import Generator, Iterable, List, Optional, Set, Tuple
+from typing import Generator, Iterable, List, Optional, Set
 
 from pytoolconfig import PyToolConfig
 
@@ -29,7 +28,6 @@ from autoimport_core.utils import (
     get_files,
     get_modname_from_path,
     get_package_tuple,
-    sort_and_deduplicate,
     sort_and_deduplicate_tuple,
 )
 
@@ -38,7 +36,7 @@ def _get_future_names(
     to_index: list[tuple[ModuleInfo, Package]],
     underlined: bool,
     job_set: taskhandle.BaseJobSet,
-) -> Generator[Future, None, None]:
+) -> Generator[Future[list[Name]], None, None]:
     """Get all names as futures."""
     with ProcessPoolExecutor() as executor:
         for module, package in to_index:
@@ -86,7 +84,7 @@ class AutoImport:
 
         Parameters
         ___________
-        project : rope.base.project.Project
+        project : Path
             the project to use for project imports
         observe : bool
             if true, listen for project changes and update the cache.
@@ -240,7 +238,7 @@ class AutoImport:
         task_handle: taskhandle.BaseTaskHandle | None = None,
         single_thread: bool = False,
         remove_extras: bool = False,
-    ):
+    ) -> None:
         """
         This will work under 3 modes:
         1. packages or files are specified. Autoimport will only index these.
@@ -292,11 +290,6 @@ class AutoImport:
 
         self.connection.commit()
 
-    def update_module(self, module: str):
-        """Update a module in the cache, or add it if it doesn't exist."""
-        self._del_if_exist(module)
-        self.generate_modules_cache([module])
-
     def close(self) -> None:
         """Close the autoimport database."""
         self.connection.commit()
@@ -320,9 +313,9 @@ class AutoImport:
         self._del_if_exist(module_name=module.modname, commit=False)
         self._generate_cache(files=[path], underlined=underlined)
 
-    def _changed(self, resource) -> None:
-        if not resource.is_folder():
-            self.update_path(resource)
+    def _changed(self, path: Path) -> None:
+        if not path.is_dir():
+            self.update_path(path)
 
     def _moved(self, old_path: Path, new_path: Path) -> None:
         if not old_path.is_dir():
@@ -330,17 +323,17 @@ class AutoImport:
             self._del_if_exist(modname)
             self._generate_cache(files=[new_path])
 
-    def _del_if_exist(self, module_name, commit: bool = True):
+    def _del_if_exist(self, module_name: str, commit: bool = True) -> None:
         self.connection.execute("delete from names where module = ?", (module_name,))
         if commit:
             self.connection.commit()
 
-    def _get_python_folders(self) -> list[pathlib.Path]:
-        def filter_folders(folder: pathlib.Path) -> bool:
+    def _get_python_folders(self) -> list[Path]:
+        def filter_folders(folder: Path) -> bool:
             return folder.is_dir() and folder.as_posix() != "/usr/bin"
 
         folders = sys.path
-        folder_paths = map(lambda folder: pathlib.Path(folder), folders)
+        folder_paths = map(lambda folder: Path(folder), folders)
         filtered_paths = filter(filter_folders, folder_paths)
         return list(OrderedDict.fromkeys(filtered_paths))
 

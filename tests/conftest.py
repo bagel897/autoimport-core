@@ -1,59 +1,59 @@
 from __future__ import annotations
 
 import pathlib
+from pathlib import Path
 
 import pytest
-from ropetest import testutils
+
+from autoimport_core import AutoImport
 
 
 @pytest.fixture
-def project():
-    project = testutils.sample_project()
+def project(tmpdir) -> Path:
+    project = Path(tmpdir)
     yield project
-    testutils.remove_project(project)
 
 
 @pytest.fixture
-def mod1(project):
-    mod1 = testutils.create_module(project, "mod1")
+def mod1(project: Path) -> Path:
+    mod1 = project / "mod1"
+    mod1.touch()
     yield mod1
+    del mod1
 
 
 @pytest.fixture
-def mod1_path(mod1):
-    yield pathlib.Path(mod1.real_path)
-
-
-@pytest.fixture
-def project_path(project):
-    yield pathlib.Path(project.address)
-
-
-@pytest.fixture
-def typing_path():
+def typing_path() -> Path:
     import typing
 
     yield pathlib.Path(typing.__file__)
 
 
 @pytest.fixture
-def build_env_path():
-    from build import env
+def pytoolconfig_documentation_path() -> Path:
+    from pytoolconfig import documentation
 
-    yield pathlib.Path(env.__file__)
+    yield pathlib.Path(documentation.__file__)
 
 
 @pytest.fixture
-def build_path():
-    import build
+def pytoolconfig_path() -> Path:
+    import pytoolconfig
 
     # Uses __init__.py so we need the parent
 
-    yield pathlib.Path(build.__file__).parent
+    yield pathlib.Path(pytoolconfig.__file__).parent
 
 
 @pytest.fixture
-def zlib_path():
+def zlib_path() -> Path:
     import zlib
 
     yield pathlib.Path(zlib.__file__)
+
+
+@pytest.fixture
+def importer(project) -> AutoImport:
+    autoimport = AutoImport(project)
+    yield autoimport
+    autoimport.close()
