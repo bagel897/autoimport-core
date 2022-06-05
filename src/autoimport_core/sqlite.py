@@ -336,7 +336,8 @@ class AutoImport:
         folder_paths = map(lambda folder: Path(folder), folders)
         filtered_paths = filter(filter_folders, folder_paths)
         return list(OrderedDict.fromkeys(filtered_paths))
-
+    def update_module(self, module: str) -> None:
+        self._generate_cache(package_names=[module])
     def _get_available_packages(self) -> list[Package]:
         packages: list[Package] = [
             Package(module, Source.BUILTIN, None, PackageType.BUILTIN)
