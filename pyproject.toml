@@ -37,6 +37,7 @@ classifiers = [
 
 dependencies = [
     "typing_extensions >=3.7; python_version<'3.8'",
+    "pytoolconfig>=1.0.0",
 ]
 
 [project.optional-dependencies]

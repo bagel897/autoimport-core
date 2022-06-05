@@ -1,12 +1,8 @@
-"""
-Copyright (c) 2022 bageljr. All rights reserved.
-
-autoimport-core: Provide autoimport suggestions.
-"""
+"""AutoImport module for rope."""
+from .pickle import AutoImport as _PickleAutoImport
+from .sqlite import AutoImport as _SqliteAutoImport
 
 
-from __future__ import annotations
+AutoImport = _PickleAutoImport
 
-__version__ = "0.1.0"
-
-__all__ = ("__version__",)
+__all__ = ["AutoImport"]
