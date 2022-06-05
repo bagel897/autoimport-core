@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from rope.contrib.autoimport import parse
 from rope.contrib.autoimport.defs import Name, NameType, PartialName, Source
 

@@ -1,8 +1,6 @@
 """AutoImport module for rope."""
-from .pickle import AutoImport as _PickleAutoImport
-from .sqlite import AutoImport as _SqliteAutoImport
+from __future__ import annotations
 
-
-AutoImport = _PickleAutoImport
+from .sqlite import AutoImport
 
 __all__ = ["AutoImport"]

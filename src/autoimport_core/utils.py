@@ -1,17 +1,17 @@
 """Utility functions for the autoimport code."""
+from __future__ import annotations
+
 import pathlib
 import sys
 from collections import OrderedDict
 from typing import Generator, List, Optional, Tuple
 
-from rope.base.project import Project
-
 from .defs import ModuleCompiled, ModuleFile, ModuleInfo, Package, PackageType, Source
 
 
 def get_package_tuple(
-    package_path: pathlib.Path, project: Optional[Project] = None
-) -> Optional[Package]:
+    package_path: pathlib.Path, project: pathlib.Path | None = None
+) -> Package | None:
     """
     Get package name and type from a path.
 
@@ -40,12 +40,12 @@ def get_package_tuple(
 
 
 def get_package_source(
-    package: pathlib.Path, project: Optional[Project], name: str
+    package: pathlib.Path, project: pathlib.Path | None, name: str
 ) -> Source:
     """Detect the source of a given package. Rudimentary implementation."""
     if name in sys.builtin_module_names:
         return Source.BUILTIN
-    if project is not None and project.address in str(package):
+    if project is not None and str(project) in str(package):
         return Source.PROJECT
     if "site-packages" in package.parts:
         return Source.SITE_PACKAGE
@@ -80,7 +80,7 @@ def get_modname_from_path(
     return modname
 
 
-def sort_and_deduplicate(results: List[Tuple[str, int]]) -> List[str]:
+def sort_and_deduplicate(results: list[tuple[str, int]]) -> list[str]:
     """Sort and deduplicate a list of name, source entries."""
     results = sorted(results, key=lambda y: y[-1])
     results_sorted = [name for name, source in results]
@@ -88,8 +88,8 @@ def sort_and_deduplicate(results: List[Tuple[str, int]]) -> List[str]:
 
 
 def sort_and_deduplicate_tuple(
-    results: List[Tuple[str, str, int]]
-) -> List[Tuple[str, str]]:
+    results: list[tuple[str, str, int]]
+) -> list[tuple[str, str]]:
     """Sort and deduplicate a list of name, module, source entries."""
     results = sorted(results, key=lambda y: y[-1])
     results_sorted = [result[:-1] for result in results]

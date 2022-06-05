@@ -1,7 +1,8 @@
+from __future__ import annotations
+
 import pathlib
 
 import pytest
-
 from ropetest import testutils
 
 
@@ -33,8 +34,6 @@ def typing_path():
     import typing
 
     yield pathlib.Path(typing.__file__)
-
-
 
 
 @pytest.fixture

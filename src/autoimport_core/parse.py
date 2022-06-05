@@ -4,6 +4,8 @@ Functions to find importable names.
 Can extract names from source code of a python file, .so object, or builtin module.
 """
 
+from __future__ import annotations
+
 import ast
 import inspect
 import logging
@@ -94,7 +96,7 @@ def get_type_object(imported_object) -> NameType:
     return NameType.Variable
 
 
-def get_names(module: ModuleInfo, package: Package) -> List[Name]:
+def get_names(module: ModuleInfo, package: Package) -> list[Name]:
     """Get all names from a module and package."""
     if isinstance(module, ModuleCompiled):
         return list(

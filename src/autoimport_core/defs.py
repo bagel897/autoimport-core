@@ -1,4 +1,6 @@
 """Definitions of types for the Autoimport program."""
+from __future__ import annotations
+
 import pathlib
 from enum import Enum
 from typing import NamedTuple, Optional
@@ -20,7 +22,7 @@ class Source(Enum):
 class ModuleInfo(NamedTuple):
     """Descriptor of information to get names from a module."""
 
-    filepath: Optional[pathlib.Path]
+    filepath: pathlib.Path | None
     modname: str
     underlined: bool
     process_imports: bool
@@ -88,7 +90,7 @@ class Package(NamedTuple):
 
     name: str
     source: Source
-    path: Optional[pathlib.Path]
+    path: pathlib.Path | None
     type: PackageType
 
 

@@ -11,7 +11,6 @@
 [![GitHub Discussion][github-discussions-badge]][github-discussions-link]
 [![Gitter][gitter-badge]][gitter-link]
 
-
 <!-- prettier-ignore-start -->
 [actions-badge]:            https://github.com/bageljrkhanofemus/autoimport-core/workflows/CI/badge.svg
 [actions-link]:             https://github.com/bageljrkhanofemus/autoimport-core/actions
