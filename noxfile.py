@@ -4,10 +4,19 @@ import shutil
 from pathlib import Path
 
 import nox
+from pytoolconfig.sources.pyproject import PyProject
 
 DIR = Path(__file__).parent.resolve()
 
 nox.options.sessions = ["lint", "pylint", "tests"]
+pyproject = PyProject(DIR, "nox", bases=None)
+pyproject._read()
+config = pyproject.universalconfig()
+versions = [
+    f"3.{version}"
+    for version in range(config.min_py_version[1], config.max_py_version[1] + 1)
+]
+print(versions)
 
 
 @nox.session
@@ -30,7 +39,7 @@ def pylint(session: nox.Session) -> None:
     session.run("pylint", "src", *session.posargs)
 
 
-@nox.session
+@nox.session(python=versions)
 def tests(session: nox.Session) -> None:
     """
     Run the unit and regular tests.
