@@ -3,7 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from autoimport_core import AutoImport
-
+import pytest
 
 def test_simple_case(importer: AutoImport) -> None:
     assert [] == importer.search("A")
@@ -17,8 +17,8 @@ def test_update_resource(importer: AutoImport, mod1: Path) -> None:
 
 
 def test_update_non_existent_module(importer: AutoImport, project: Path) -> None:
-    importer.update_path(project / "does_not_exists_this")
-    assert [] == importer.search("myva")
+    with pytest.raises(FileNotFoundError):
+        importer.update_path(project / "does_not_exists_this")
 
 
 def test_module_with_syntax_errors(
