@@ -13,78 +13,91 @@ def test_update_resource(importer: AutoImport, mod1: Path) -> None:
     with mod1.open("w") as f:
         f.write("myvar = None\n")
     importer.update_path(mod1)
-    assert "from mod1 import myvar" == importer.search("myva")
+    assert [("from mod1 import myvar", "myvar")] == importer.search("myva")
 
 
 def test_update_non_existent_module(importer: AutoImport, project: Path) -> None:
-    importer.update_pathproject / "does_not_exists_this"
+    importer.update_path(project / "does_not_exists_this")
     assert [] == importer.search("myva")
 
 
 def test_module_with_syntax_errors(
     importer: AutoImport, project: Path, mod1: Path
 ) -> None:
-    mod1.write("this is a syntax error\n")
+    with mod1.open(mode="w") as f:
+        f.write("this is a syntax error\n")
     importer.update_path(mod1)
     assert [] == importer.search("myva")
 
 
 def test_excluding_imported_names(importer: AutoImport, mod1: Path) -> None:
-    mod1.write("import pkg\n")
-    importer.update_path(importer.mod1)
+    with mod1.open(mode="w") as f:
+        f.write("import pkg\n")
+    importer.update_path(mod1)
     assert [] == importer.search("pkg")
 
 
-def test_get_modules(importer: AutoImport) -> None:
-    mod1.write("myvar = None\n")
-    importer.update_path(importer.mod1)
-    assert ["mod1"] == importer.get_modules("myvar")
+def test_get_modules(importer: AutoImport, mod1: Path) -> None:
+    with mod1.open(mode="w") as f:
+        f.write("myvar = None\n")
+    importer.update_path(mod1)
+    assert [("from mod1 import myvar", "myvar")] == importer.search("myvar")
 
 
-def test_get_modules_inside_packages(importer: AutoImport, mod1: Path) -> None:
-    mod1.write("myvar = None\n")
-    mod2.write("myvar = None\n")
-    importer.update_path(importer.mod1)
-    importer.update_path(importer.mod2)
-    assert {"mod1", "pkg.mod2"} == set(importer.get_modules("myvar"))
+def test_get_modules_inside_packages(
+    importer: AutoImport, mod1: Path, mod2: Path
+) -> None:
+    with mod1.open(mode="w") as f:
+        f.write("myvar = None\n")
+    with mod2.open(mode="w") as f:
+        f.write("myvar = None\n")
+    importer.update_path(mod1)
+    importer.update_path(mod2)
+    assert {
+        ("from mod1 import myvar", "myvar"),
+        ("from pkg.mod2 import myvar", "myvar"),
+    } == set(importer.search("myvar"))
 
 
 def test_empty_cache(importer: AutoImport, mod1: Path) -> None:
-    mod1.write("myvar = None\n")
-    importer.update_path(importer.mod1)
-    assert ["mod1"] == importer.get_modules("myvar")
+    with mod1.open(mode="w") as f:
+        f.write("myvar = None\n")
+    importer.update_path(mod1)
+    assert [("from mod1 import myvar", "myvar")] == importer.search("myvar")
     importer.clear_cache()
-    assert [] == importer.get_modules("myvar")
+    assert [] == importer.search("myvar")
 
 
 def test_not_caching_underlined_names(importer: AutoImport, mod1: Path) -> None:
-    mod1.write("_myvar = None\n")
-    importer.update_path(importer.mod1, underlined=False)
-    assert [] == importer.get_modules("_myvar")
-    importer.update_path(importer.mod1, underlined=True)
-    assert ["mod1"] == importer.get_modules("_myvar")
+    with mod1.open(mode="w") as f:
+        f.write("_myvar = None\n")
+    importer.update_path(mod1, underlined=False)
+    assert [] == importer.search("_myvar")
+    importer.update_path(mod1, underlined=True)
+    assert [("from mod1 import _myvar", "_myvar")] == importer.search("_myvar")
 
 
 def test_caching_underlined_names_passing_to_the_constructor(
     mod1: Path, project: Path
 ) -> None:
-    importer = autoimport.AutoImport(project, False, True)
-    mod1.write("_myvar = None\n")
+    importer = AutoImport(project, True, None)
+    with mod1.open(mode="w") as f:
+        f.write("_myvar = None\n")
     importer.update_path(mod1)
-    assert ["mod1"] in importer.get_modules("_myvar")
+    assert [("from mod1 import _myvar", "_myvar")] == importer.search("_myvar")
 
 
 def test_handling_builtin_modules(importer: AutoImport) -> None:
     importer.update_module("sys")
-    assert "sys" in importer.get_modules("exit")
+    assert [("from sys import exit", "exit")] == importer.search("exit")
 
 
 def test_search_submodule(importer: AutoImport) -> None:
-    importer.update_module("build")
-    import_statement = ("from build import env", "env")
-    assert import_statement in importer.search("env", exact_match=True)
-    assert import_statement in importer.search("en")
-    assert import_statement in importer.search("env")
+    importer.update_module("packaging")
+    import_statement = ("from packaging import requirements", "requirements")
+    assert import_statement in importer.search("requirements", exact_match=True)
+    assert import_statement in importer.search("requirements")
+    assert import_statement in importer.search("requirements")
 
 
 def test_search_module(importer: AutoImport) -> None:
@@ -106,9 +119,10 @@ def test_search(importer: AutoImport) -> None:
 
 
 def test_generate_full_cache(importer: AutoImport) -> None:
-    """The single thread test takes much longer than the multithread test but is easier to debug"""
+    # The single thread test takes much longer than the multithread test
+    # but it is easier to debug
     single_thread = False
-    importer.generate_modules_cache(single_thread=single_thread)
+    importer.generate_cache(single_thread=single_thread)
     assert ("from typing import Dict", "Dict") in importer.search("Dict")
     assert len(importer._dump_all()) > 0
     for table in importer._dump_all():

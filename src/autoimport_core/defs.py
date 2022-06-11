@@ -2,8 +2,9 @@
 from __future__ import annotations
 
 import pathlib
+from dataclasses import dataclass
 from enum import Enum
-from typing import NamedTuple, Optional
+from typing import NamedTuple
 
 
 class Source(Enum):
@@ -19,7 +20,8 @@ class Source(Enum):
     # modified_time
 
 
-class ModuleInfo(NamedTuple):
+@dataclass
+class ModuleInfo:
     """Descriptor of information to get names from a module."""
 
     filepath: pathlib.Path | None
@@ -28,6 +30,7 @@ class ModuleInfo(NamedTuple):
     process_imports: bool
 
 
+@dataclass
 class ModuleFile(ModuleInfo):
     """Descriptor of information to get names from a file using ast."""
 
@@ -37,6 +40,7 @@ class ModuleFile(ModuleInfo):
     process_imports: bool
 
 
+@dataclass
 class ModuleCompiled(ModuleInfo):
     """Descriptor of information to get names using imports."""
 

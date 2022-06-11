@@ -16,12 +16,12 @@ def test_get_package_source_not_project(mod1: Path) -> None:
     assert utils.get_package_source(mod1, None, "") == Source.UNKNOWN
 
 
-def test_get_package_source_pytoolconfig(pytoolconfig_path: Path) -> None:
-    # pytest is not installed as part of the standard library
+def test_get_package_source_packaging(packaging_path: Path) -> None:
+    # packaging is not installed as part of the standard library
     # but should be installed into site_packages,
     # so it should return Source.SITE_PACKAGE
     assert (
-        utils.get_package_source(pytoolconfig_path, None, "pytoolconfig")
+        utils.get_package_source(packaging_path, None, "packaging")
         == Source.SITE_PACKAGE
     )
 
@@ -42,12 +42,12 @@ def test_get_modname_single_file(typing_path: Path) -> None:
 
 
 def test_get_modname_folder(
-    pytoolconfig_path: Path, pytoolconfig_documentation_path: Path
+    packaging_path: Path, packaging_requirment_path: Path
 ) -> None:
 
     assert (
-        utils.get_modname_from_path(pytoolconfig_documentation_path, pytoolconfig_path)
-        == "pytoolconfig.documentation"
+        utils.get_modname_from_path(packaging_requirment_path, packaging_path)
+        == "packaging.requirements"
     )
 
 

@@ -47,7 +47,7 @@ def get_package_source(
         return Source.BUILTIN
     if project is not None and str(project) in str(package):
         return Source.PROJECT
-    if "site-packages" in package.parts:
+    if "site-packages" in package.parts or "__pypackages__" in package.parts:
         return Source.SITE_PACKAGE
     if sys.version_info < (3, 10, 0):
         if str(package).startswith(sys.prefix):

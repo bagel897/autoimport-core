@@ -7,7 +7,7 @@ from collections import OrderedDict
 from concurrent.futures import Future, ProcessPoolExecutor, as_completed
 from itertools import chain
 from pathlib import Path
-from typing import Generator, Iterable, List, Optional, Set
+from typing import Generator, Iterable
 
 from pytoolconfig import PyToolConfig
 
@@ -229,8 +229,7 @@ class AutoImport:
         package_results = self.connection.execute("select * from packages").fetchall()
         return name_results, package_results
 
-    # TODO: Update to use Task Handle ABC class
-    def _generate_cache(
+    def generate_cache(
         self,
         package_names: list[str] | None = None,
         files: list[Path] | None = None,
@@ -255,7 +254,9 @@ class AutoImport:
         if files is not None:
             assert package_names is None  # Cannot have both package_names and files.
             for file in files:
-                to_index.append((self._path_to_module(file, underlined), self.project))
+                to_index.append(
+                    (self._path_to_module(file, underlined), self.project_package)
+                )
         else:
             if package_names is None:
                 packages = self._get_available_packages()
@@ -311,7 +312,7 @@ class AutoImport:
         underlined = underlined if underlined else self.underlined
         module = self._path_to_module(path, underlined)
         self._del_if_exist(module_name=module.modname, commit=False)
-        self._generate_cache(files=[path], underlined=underlined)
+        self.generate_cache(files=[path], underlined=underlined)
 
     def _changed(self, path: Path) -> None:
         if not path.is_dir():
@@ -321,7 +322,7 @@ class AutoImport:
         if not old_path.is_dir():
             modname = self._path_to_module(old_path).modname
             self._del_if_exist(modname)
-            self._generate_cache(files=[new_path])
+            self.generate_cache(files=[new_path])
 
     def _del_if_exist(self, module_name: str, commit: bool = True) -> None:
         self.connection.execute("delete from names where module = ?", (module_name,))
@@ -338,7 +339,7 @@ class AutoImport:
         return list(OrderedDict.fromkeys(filtered_paths))
 
     def update_module(self, module: str) -> None:
-        self._generate_cache(package_names=[module])
+        self.generate_cache(package_names=[module])
 
     def _get_available_packages(self) -> list[Package]:
         packages: list[Package] = [
@@ -364,14 +365,13 @@ class AutoImport:
         existing.append(self.project_package.name)
         return existing
 
-    def _removed(self, resource) -> None:
-        if not resource.is_folder():
-            path = Path(resource.real_path)
-            modname = self._path_to_module(path).modname
+    def remove(self, location: Path) -> None:
+        if location.is_dir():
+            for file in location.glob("*.py"):
+                self.remove(file)
+        else:
+            modname = self._path_to_module(location).modname
             self._del_if_exist(modname)
-
-    def _add_future_names(self, names: Future) -> None:
-        self._add_names(names.result())
 
     def _add_names(self, names: Iterable[Name]) -> None:
         for name in names:
@@ -418,3 +418,9 @@ class AutoImport:
             underlined,
             path.name == "__init__.py",
         )
+
+    @property
+    def _project_package(self) -> Package:
+        result = get_package_tuple(self.project, self.project)
+        assert result is not None
+        return result

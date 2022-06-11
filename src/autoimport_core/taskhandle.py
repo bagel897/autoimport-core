@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import List, Sequence
+from typing import Sequence
 
 
 class BaseJobSet(ABC):

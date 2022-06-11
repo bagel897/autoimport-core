@@ -16,10 +16,21 @@ def project(tmpdir) -> Path:
 
 @pytest.fixture
 def mod1(project: Path) -> Path:
-    mod1 = project / "mod1"
+    mod1 = project / "mod1.py"
     mod1.touch()
     yield mod1
     del mod1
+
+
+@pytest.fixture
+def mod2(project: Path) -> Path:
+    package = project / "pkg"
+    package.mkdir()
+    mod2 = package / "mod2.py"
+    mod2.touch()
+    yield mod2
+    del mod2
+    del package
 
 
 @pytest.fixture
@@ -30,19 +41,19 @@ def typing_path() -> Path:
 
 
 @pytest.fixture
-def pytoolconfig_documentation_path() -> Path:
-    from pytoolconfig import documentation
+def packaging_requirment_path() -> Path:
+    from packaging import requirements
 
-    yield pathlib.Path(documentation.__file__)
+    yield pathlib.Path(requirements.__file__)
 
 
 @pytest.fixture
-def pytoolconfig_path() -> Path:
-    import pytoolconfig
+def packaging_path() -> Path:
+    import packaging
 
     # Uses __init__.py so we need the parent
 
-    yield pathlib.Path(pytoolconfig.__file__).parent
+    yield pathlib.Path(packaging.__file__).parent
 
 
 @pytest.fixture
