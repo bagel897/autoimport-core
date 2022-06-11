@@ -11,7 +11,7 @@ import inspect
 import logging
 import pathlib
 from importlib import import_module
-from typing import Generator, List
+from typing import Generator
 
 from .defs import (
     ModuleCompiled,
@@ -48,7 +48,7 @@ def get_names_from_file(
     try:
         root_node = ast.parse(module.read_bytes())
     except SyntaxError as error:
-        print(error)
+        logger.exception(error)
         return
     for node in ast.iter_child_nodes(root_node):
         if isinstance(node, ast.Assign):
@@ -76,18 +76,16 @@ def get_names_from_file(
             if not node.module or package_name is node.module.split(".")[0]:
                 continue
             for name in node.names:
-                if isinstance(name, ast.alias):
-                    if name.asname:
-                        real_name = name.asname
-                    else:
-                        real_name = name.name
+                assert isinstance(name, ast.alias)
+                if name.asname:
+                    real_name = name.asname
                 else:
-                    real_name = name
+                    real_name = name.name
                 if underlined or not real_name.startswith("_"):
                     yield PartialName(real_name, get_type_ast(node))
 
 
-def get_type_object(imported_object) -> NameType:
+def get_type_object(imported_object: object) -> NameType:
     """Determine the type of an object."""
     if inspect.isclass(imported_object):
         return NameType.Class

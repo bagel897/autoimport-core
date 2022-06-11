@@ -139,7 +139,7 @@ class AutoImport:
         self,
         name: str,
         exact_match: bool = False,
-        ignored_names: set[str] = set(),
+        ignored_names: set[str] | None = None,
     ) -> Generator[SearchResult, None, None]:
         """
         Search both modules and names for an import string.
@@ -160,9 +160,12 @@ class AutoImport:
         """
         results = set(self._search_name(name, exact_match))
         results = results.union(self._search_module(name, exact_match))
-        for result in results:
-            if result.name not in ignored_names:
-                yield result
+        if ignored_names is not None:
+            for result in results:
+                if result.name not in ignored_names:
+                    yield result
+        else:
+            yield from results
 
     def _search_name(
         self, name: str, exact_match: bool = False

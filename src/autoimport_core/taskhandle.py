@@ -64,7 +64,7 @@ class NullTaskHandle(BaseTaskHandle):
     def create_jobset(
         self, name: str = "JobSet", count: int | None = None
     ) -> NullJobSet:
-        return NullJobSet()
+        return NullJobSet("")
 
     def get_jobsets(self) -> list[BaseJobSet]:
         return []
@@ -75,7 +75,7 @@ class NullTaskHandle(BaseTaskHandle):
 
 
 class NullJobSet(BaseJobSet):
-    def __init__(self, *args) -> None:
+    def __init__(self, name: str) -> None:
         pass
 
     def started_job(self, name: str) -> None:

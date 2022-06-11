@@ -4,7 +4,7 @@ from __future__ import annotations
 import pathlib
 import sys
 from collections import OrderedDict
-from typing import Generator, List, Optional, Tuple
+from typing import Generator
 
 from .defs import ModuleCompiled, ModuleFile, ModuleInfo, Package, PackageType, Source
 
