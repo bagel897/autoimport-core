@@ -6,8 +6,8 @@ import sys
 from collections import OrderedDict
 from typing import Generator
 
-from .defs import Source
 from ._defs import ModuleCompiled, ModuleFile, ModuleInfo, Package, PackageType
+from .defs import Source
 
 
 def get_package_tuple(
@@ -101,7 +101,7 @@ def should_parse(path: pathlib.Path, underlined: bool) -> bool:
     if underlined:
         return True
     for part in path.parts:
-        if part.startswith("_"):
+        if part.startswith("_") and part != "__pypackages__":
             return False
     return True
 

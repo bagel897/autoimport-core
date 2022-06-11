@@ -1,8 +1,6 @@
 """Definitions of types for the Autoimport program."""
 from __future__ import annotations
 
-import pathlib
-from dataclasses import dataclass
 from enum import Enum
 from typing import NamedTuple
 
@@ -48,11 +46,10 @@ class NameType(Enum):
     TypeParameter = 25
 
 
-
 class SearchResult(NamedTuple):
     """Search Result."""
 
     import_statement: str
     name: str
-    source: Source 
-    itemkind: NameType 
+    source: Source
+    itemkind: NameType

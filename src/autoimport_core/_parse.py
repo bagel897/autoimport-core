@@ -13,15 +13,9 @@ import pathlib
 from importlib import import_module
 from typing import Generator
 
-from ._defs import (
-    ModuleCompiled,
-    ModuleFile,
-    ModuleInfo,
-    Name,
-    Package,
-    PartialName,
-)
+from ._defs import ModuleCompiled, ModuleFile, ModuleInfo, Name, Package, PartialName
 from .defs import NameType, Source
+
 logger = logging.getLogger(__name__)
 
 

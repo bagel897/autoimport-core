@@ -214,7 +214,9 @@ class AutoImport:
         ):
             if "." in module:
                 continue
-            yield SearchResult(f"import {module}", module, Source(source), NameType.Module)
+            yield SearchResult(
+                f"import {module}", module, Source(source), NameType.Module
+            )
 
     def _dump_all(self) -> tuple[list[Name], list[Package]]:
         """Dump the entire database."""
@@ -239,8 +241,6 @@ class AutoImport:
         """
         if self.underlined:
             underlined = True
-        if task_handle is None:
-            task_handle = taskhandle.NullTaskHandle()
         packages: list[Package] = []
         existing = self._get_existing()
         to_index: list[tuple[ModuleInfo, Package]] = []
@@ -264,8 +264,19 @@ class AutoImport:
                 for module in get_files(package, underlined):
                     to_index.append((module, package))
             self._add_packages(packages)
+        self._index(to_index, underlined, task_handle, single_thread)
+
+    def _index(
+        self,
+        to_index: list[tuple[ModuleInfo, Package]],
+        underlined: bool,
+        task_handle: taskhandle.BaseTaskHandle | None,
+        single_thread: bool,
+    ) -> None:
         if len(to_index) == 0:
             return
+        if task_handle is None:
+            task_handle = taskhandle.NullTaskHandle()
         job_set = task_handle.create_jobset(
             "Generating autoimport cache", len(to_index)
         )

@@ -6,7 +6,6 @@ from autoimport_core import Source, _parse
 from autoimport_core._defs import Name, NameType, PartialName
 
 
-
 def test_typing_names(typing_path: Path) -> None:
     names = list(_parse.get_names_from_file(typing_path))
     assert PartialName("Text", NameType.Variable) in names

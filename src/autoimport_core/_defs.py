@@ -5,7 +5,9 @@ import pathlib
 from dataclasses import dataclass
 from enum import Enum
 from typing import NamedTuple
+
 from .defs import NameType, Source
+
 
 @dataclass
 class ModuleInfo:
