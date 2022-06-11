@@ -6,7 +6,8 @@ import sys
 from collections import OrderedDict
 from typing import Generator
 
-from .defs import ModuleCompiled, ModuleFile, ModuleInfo, Package, PackageType, Source
+from .defs import Source
+from ._defs import ModuleCompiled, ModuleFile, ModuleInfo, Package, PackageType
 
 
 def get_package_tuple(

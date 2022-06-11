@@ -2,8 +2,10 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from autoimport_core import AutoImport
 import pytest
+
+from autoimport_core import AutoImport
+
 
 def test_simple_case(importer: AutoImport) -> None:
     assert [] == importer.search("A")

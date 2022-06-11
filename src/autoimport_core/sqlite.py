@@ -12,24 +12,16 @@ from typing import Generator, Iterable
 from pytoolconfig import PyToolConfig
 
 from autoimport_core import taskhandle
-from autoimport_core.defs import (
-    ModuleFile,
-    ModuleInfo,
-    Name,
-    NameType,
-    Package,
-    PackageType,
-    SearchResult,
-    Source,
-)
-from autoimport_core.parse import get_names
-from autoimport_core.prefs import Prefs
-from autoimport_core.utils import (
+from autoimport_core._defs import ModuleFile, ModuleInfo, Name, Package, PackageType
+from autoimport_core._parse import get_names
+from autoimport_core._utils import (
     get_files,
     get_modname_from_path,
     get_package_tuple,
     sort_and_deduplicate_tuple,
 )
+from autoimport_core.defs import NameType, SearchResult, Source
+from autoimport_core.prefs import Prefs
 
 
 def _get_future_names(
@@ -128,7 +120,7 @@ class AutoImport:
         Returns a sorted list of import statement, modname pairs
         """
         results: list[tuple[str, str, int]] = [
-            (statement, import_name, source)
+            (statement, import_name, source.value)
             for statement, import_name, source, type in self.search_full(
                 name, exact_match
             )
@@ -184,8 +176,8 @@ class AutoImport:
                 SearchResult(
                     f"from {module} import {import_name}",
                     import_name,
-                    source,
-                    name_type,
+                    Source(source),
+                    NameType(name_type),
                 )
             )
 
@@ -213,8 +205,8 @@ class AutoImport:
                 SearchResult(
                     f"from {remaining} import {import_name}",
                     import_name,
-                    source,
-                    NameType.Module.value,
+                    Source(source),
+                    NameType.Module,
                 )
             )
         for module, source in self.connection.execute(
@@ -222,9 +214,7 @@ class AutoImport:
         ):
             if "." in module:
                 continue
-            yield SearchResult(
-                f"import {module}", module, source, NameType.Module.value
-            )
+            yield SearchResult(f"import {module}", module, Source(source), NameType.Module)
 
     def _dump_all(self) -> tuple[list[Name], list[Package]]:
         """Dump the entire database."""
