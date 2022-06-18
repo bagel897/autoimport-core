@@ -37,7 +37,8 @@ def get_package_tuple(
     else:
         package_type = PackageType.STANDARD
     package_source: Source = get_package_source(package_path, project, package_name)
-    return Package(package_name, package_source, package_path, package_type)
+    modified_time = package_path.stat().st_mtime
+    return Package(package_name, package_source, package_path, package_type, modified_time)
 
 
 def get_package_source(

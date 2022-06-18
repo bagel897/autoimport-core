@@ -124,7 +124,7 @@ def test_generate_full_cache(importer: AutoImport) -> None:
     # The single thread test takes much longer than the multithread test
     # but it is easier to debug
     single_thread = False
-    importer.generate_cache(single_thread=single_thread)
+    importer._generate_cache (single_thread=single_thread)
     assert ("from typing import Dict", "Dict") in importer.search("Dict")
     assert len(importer._dump_all()) > 0
     for table in importer._dump_all():

@@ -20,7 +20,7 @@ from autoimport_core._utils import (
     get_package_tuple,
     sort_and_deduplicate_tuple,
 )
-from autoimport_core.defs import NameType, SearchResult, Source
+from autoimport_core.defs import NameType, SearchResult, Source, Underlined
 from autoimport_core.prefs import Prefs
 
 
@@ -65,11 +65,13 @@ class AutoImport:
     project: Path
     project_package: Package
     prefs: Prefs
+    _packages: dict[str, Package]
+    _underlined: Underlined
 
     def __init__(
         self,
         project: Path,
-        underlined: bool = False,
+        underlined: Underlined | None = None,
         index: str | None = None,
     ):
         """Construct an AutoImport object.
@@ -80,13 +82,11 @@ class AutoImport:
             the project to use for project imports
         observe : bool
             if true, listen for project changes and update the cache.
-        underlined : bool
-            If `underlined` is `True`, underlined names are cached, too.
-        index
-            if None, don't persist to disk
+        underlined : cache underlined names. Overwrite for the preference from TOML
+        index : if None, don't persist to disk
         """
-        self.project = project
-        project_package = get_package_tuple(project, project)
+        self.project = Path(project)
+        project_package = get_package_tuple(self.project, self.project)
         assert project_package is not None
         assert project_package.path is not None
         self.project_package = project_package
@@ -95,17 +95,21 @@ class AutoImport:
             index = ":memory:"
         self.connection = sqlite3.connect(index)
         self._setup_db()
-
+        self._packages = {
+            module: Package(module, Source.BUILTIN, None, PackageType.BUILTIN, 0)
+            for module in sys.builtin_module_names
+        }
         self.prefs = PyToolConfig("autoimport_core", project, Prefs).parse()
-        # TODO add observer support
+        if underlined is not None:
+            self.underlined = underlined
+        else:
+            self.underlined = Underlined(self.prefs.underlined)
 
     def _setup_db(self) -> None:
-        packages_table = "(package TEXT)"
         names_table = (
             "(name TEXT, module TEXT, package TEXT, source INTEGER, type INTEGER)"
         )
         self.connection.execute(f"create table if not exists names{names_table}")
-        self.connection.execute(f"create table if not exists packages{packages_table}")
         self.connection.execute("CREATE INDEX IF NOT EXISTS name on names(name)")
         self.connection.execute("CREATE INDEX IF NOT EXISTS module on names(module)")
         self.connection.execute("CREATE INDEX IF NOT EXISTS package on names(package)")
@@ -224,11 +228,13 @@ class AutoImport:
         package_results = self.connection.execute("select * from packages").fetchall()
         return name_results, package_results
 
-    def generate_cache(
+    def sync(self, task_handle: taskhandle.BaseTaskHandle | None = None):
+        pass
+
+    def _generate_cache(
         self,
         package_names: list[str] | None = None,
         files: list[Path] | None = None,
-        underlined: bool = False,
         task_handle: taskhandle.BaseTaskHandle | None = None,
         single_thread: bool = False,
         remove_extras: bool = False,
@@ -239,8 +245,6 @@ class AutoImport:
         2. PEP 621 is configured. Only these dependencies are indexed.
         3. Index only standard library modules.
         """
-        if self.underlined:
-            underlined = True
         packages: list[Package] = []
         existing = self._get_existing()
         to_index: list[tuple[ModuleInfo, Package]] = []
@@ -265,6 +269,9 @@ class AutoImport:
                     to_index.append((module, package))
             self._add_packages(packages)
         self._index(to_index, underlined, task_handle, single_thread)
+
+    def _to_index(self) -> list[Package]:
+        return list(filter((lambda package: package.indexed, self._packages)))
 
     def _index(
         self,
@@ -311,12 +318,16 @@ class AutoImport:
         self._setup_db()
         self.connection.commit()
 
-    def update_path(self, path: Path, underlined: bool = False) -> None:
+    def update_path(self, path: Path) -> None:
         """Update the cache for global names in `resource`."""
-        underlined = underlined if underlined else self.underlined
-        module = self._path_to_module(path, underlined)
+        module = self._path_to_module(path)
         self._del_if_exist(module_name=module.modname, commit=False)
-        self.generate_cache(files=[path], underlined=underlined)
+        self._generate_cache(files=[path], underlined=underlined)
+
+    def update_package(self, package: str) -> None:
+        if package in self._packages:
+            pass
+        pass
 
     def _changed(self, path: Path) -> None:
         if not path.is_dir():
@@ -326,7 +337,7 @@ class AutoImport:
         if not old_path.is_dir():
             modname = self._path_to_module(old_path).modname
             self._del_if_exist(modname)
-            self.generate_cache(files=[new_path])
+            self._generate_cache(files=[new_path])
 
     def _del_if_exist(self, module_name: str, commit: bool = True) -> None:
         self.connection.execute("delete from names where module = ?", (module_name,))
@@ -343,13 +354,10 @@ class AutoImport:
         return list(OrderedDict.fromkeys(filtered_paths))
 
     def update_module(self, module: str) -> None:
-        self.generate_cache(package_names=[module])
+        self._generate_cache(package_names=[module])
 
-    def _get_available_packages(self) -> list[Package]:
-        packages: list[Package] = [
-            Package(module, Source.BUILTIN, None, PackageType.BUILTIN)
-            for module in sys.builtin_module_names
-        ]
+    def _get_available_packages(self) -> None:
+
         for folder in self._get_python_folders():
             for package in folder.iterdir():
                 package_tuple = get_package_tuple(package, self.project)
@@ -401,20 +409,21 @@ class AutoImport:
                 package_tuple = get_package_tuple(package, self.project)
                 if package_tuple is None:
                     continue
-                name, source, package_path, package_type = package_tuple
-                if name == target_name:
+                if package_tuple.name == target_name:
                     return package_tuple
 
         return None
 
-    def _path_to_module(self, path: Path, underlined: bool = False) -> ModuleFile:
-        assert self.project_package.path
-        underlined = underlined if underlined else self.underlined
+    def _path_to_module(self, path: Path) -> ModuleFile:
+        # TODO check if path is in project scope
         # The project doesn't need its name added to the path,
         # since the standard python file layout accounts for that
         # so we set add_package_name to False
         resource_modname: str = get_modname_from_path(
-            path, self.project_package.path, add_package_name=False
+            path, self.project, add_package_name=False
+        )
+        underlined = (
+            True if (self.underlined in Underlined.PROJECT, Underlined.ALL) else False
         )
         return ModuleFile(
             path,

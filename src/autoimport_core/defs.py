@@ -16,6 +16,14 @@ class Source(Enum):
     UNKNOWN = 5
 
 
+class Underlined(Enum):
+    """Which underlined names to cache."""
+
+    PROJECT = "project"
+    NONE = "none"
+    ALL = "all"
+
+
 class NameType(Enum):
     """Describes the type of Name for lsp completions. Taken from python lsp server."""
 

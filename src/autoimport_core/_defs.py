@@ -9,33 +9,30 @@ from typing import NamedTuple
 from .defs import NameType, Source
 
 
-@dataclass
+@dataclass(frozen=True)
 class ModuleInfo:
     """Descriptor of information to get names from a module."""
 
     filepath: pathlib.Path | None
     modname: str
-    underlined: bool
     process_imports: bool
 
 
-@dataclass
+@dataclass(frozen=True)
 class ModuleFile(ModuleInfo):
     """Descriptor of information to get names from a file using ast."""
 
     filepath: pathlib.Path
     modname: str
-    underlined: bool
     process_imports: bool
 
 
-@dataclass
+@dataclass(frozen=True)
 class ModuleCompiled(ModuleInfo):
     """Descriptor of information to get names using imports."""
 
     filepath = None
     modname: str
-    underlined: bool
     process_imports: bool
 
 
@@ -48,13 +45,17 @@ class PackageType(Enum):
     SINGLE_FILE = 3  # a .py file
 
 
-class Package(NamedTuple):
+@dataclass
+class Package:
     """Attributes of a package."""
 
     name: str
     source: Source
     path: pathlib.Path | None
     type: PackageType
+    modified: float
+    underlined: bool
+    indexed: bool = False
 
 
 class Name(NamedTuple):
@@ -67,7 +68,8 @@ class Name(NamedTuple):
     name_type: NameType
 
 
-class PartialName(NamedTuple):
+@dataclass(frozen=True)
+class PartialName:
     """Partial information of a Name."""
 
     name: str
