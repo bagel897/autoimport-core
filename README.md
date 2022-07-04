@@ -8,6 +8,7 @@
 [![PyPI platforms][pypi-platforms]][pypi-link]
 
 [![GitHub Discussion][github-discussions-badge]][github-discussions-link]
+
 <!-- prettier-ignore-start -->
 [actions-badge]:            https://github.com/bageljrkhanofemus/autoimport-core/workflows/CI/badge.svg
 [actions-link]:             https://github.com/bageljrkhanofemus/autoimport-core/actions
@@ -21,8 +22,11 @@
 [rtd-badge]:                https://readthedocs.org/projects/autoimport-core/badge/?version=latest
 [rtd-link]:                 https://autoimport-core.readthedocs.io/en/latest/?badge=latest
 <!-- prettier-ignore-end -->
+
 ## History
-I made this to implement autoimport in pylsp. 
-The original inspiration was [autoimport](https://github.com/lyz-code/autoimport). 
-But this was oriented at postfixing imports, so I made the sqlite3 implementation in rope. 
-This is a fork of the rope autoimport sqlite3 code. While I have written almost all of it, I have recieved help and inspiration from the rope team.
+
+I made this to implement autoimport in pylsp. The original inspiration was
+[autoimport](https://github.com/lyz-code/autoimport). But this was oriented at
+postfixing imports, so I made the sqlite3 implementation in rope. This is a fork
+of the rope autoimport sqlite3 code. While I have written almost all of it, I
+have recieved help and inspiration from the rope team.
