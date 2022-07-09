@@ -1,15 +1,16 @@
 """AutoImport module for rope."""
 from __future__ import annotations
 
-import sqlite3
 import sys
 from collections import OrderedDict
 from concurrent.futures import Future, ProcessPoolExecutor, as_completed
-from itertools import chain
 from pathlib import Path
 from typing import Generator, Iterable
 
 from pytoolconfig import PyToolConfig
+from sqlalchemy import create_engine, delete, select
+from sqlalchemy.engine import Engine
+from sqlalchemy.orm import sessionmaker
 
 from autoimport_core import taskhandle
 from autoimport_core._defs import ModuleFile, ModuleInfo, Name, Package, PackageType
@@ -26,7 +27,6 @@ from autoimport_core.prefs import Prefs
 
 def _get_future_names(
     to_index: list[tuple[ModuleInfo, Package]],
-    underlined: bool,
     job_set: taskhandle.BaseJobSet,
 ) -> Generator[Future[list[Name]], None, None]:
     """Get all names as futures."""
@@ -37,18 +37,14 @@ def _get_future_names(
 
 
 def filter_packages(
-    packages: Iterable[Package], underlined: bool, existing: list[str]
+    packages: Iterable[Package], existing: list[str]
 ) -> Iterable[Package]:
     """Filter list of packages to parse."""
-    if underlined:
 
-        def filter_package(package: Package) -> bool:
-            return package.name not in existing
-
-    else:
-
-        def filter_package(package: Package) -> bool:
-            return package.name not in existing and not package.name.startswith("_")
+    def filter_package(package: Package) -> bool:
+        if package.underlined and package.name.startswith("_"):
+            return False
+        return package.name not in existing
 
     return filter(filter_package, packages)
 
@@ -61,7 +57,8 @@ class AutoImport:
 
     """
 
-    _connection: sqlite3.Connection
+    _engine: Engine
+    _session: sessionmaker
     project: Path
     project_package: Package
     prefs: Prefs
@@ -93,8 +90,10 @@ class AutoImport:
         self.underlined = underlined
         if index is None:
             index = ":memory:"
-        self.connection = sqlite3.connect(index)
-        self._setup_db()
+        index = "sqlite+pysqlite:///" + index
+        self._engine = create_engine(index, future=True)
+        self._session = sessionmaker(self._engine)
+        Package.metadata.create_all(self._engine)
         self._packages = {
             module: Package(module, Source.BUILTIN, None, PackageType.BUILTIN, 0)
             for module in sys.builtin_module_names
@@ -104,16 +103,6 @@ class AutoImport:
             self.underlined = underlined
         else:
             self.underlined = Underlined(self.prefs.underlined)
-
-    def _setup_db(self) -> None:
-        names_table = (
-            "(name TEXT, module TEXT, package TEXT, source INTEGER, type INTEGER)"
-        )
-        self.connection.execute(f"create table if not exists names{names_table}")
-        self.connection.execute("CREATE INDEX IF NOT EXISTS name on names(name)")
-        self.connection.execute("CREATE INDEX IF NOT EXISTS module on names(module)")
-        self.connection.execute("CREATE INDEX IF NOT EXISTS package on names(package)")
-        self.connection.commit()
 
     def search(self, name: str, exact_match: bool = False) -> list[tuple[str, str]]:
         """
@@ -171,19 +160,19 @@ class AutoImport:
 
         Returns the import statement, import name, source, and type.
         """
+        query = Name.name.startswith(name) if not exact_match else Name.name == name
         if not exact_match:
             name = name + "%"  # Makes the query a starts_with query
-        for import_name, module, source, name_type in self.connection.execute(
-            "SELECT name, module, source, type FROM names WHERE name LIKE (?)", (name,)
-        ):
-            yield (
-                SearchResult(
-                    f"from {module} import {import_name}",
-                    import_name,
-                    Source(source),
-                    NameType(name_type),
+        with self._engine.begin() as session:
+            for result in session.execute(select(Name).where(query)):
+                yield (
+                    SearchResult(
+                        f"from {result.module} import {result.import_name}",
+                        result.import_name,
+                        result.source,
+                        result.name_type,
+                    )
                 )
-            )
 
     def _search_module(
         self, name: str, exact_match: bool = False
@@ -195,37 +184,41 @@ class AutoImport:
         """
         if not exact_match:
             name = name + "%"  # Makes the query a starts_with query
-        for module, source in self.connection.execute(
-            "Select module, source FROM names where module LIKE (?)",
-            ("%." + name,),
-        ):
-            parts = module.split(".")
-            import_name = parts[-1]
-            remaining = parts[0]
-            for part in parts[1:-1]:
-                remaining += "."
-                remaining += part
-            yield (
-                SearchResult(
-                    f"from {remaining} import {import_name}",
-                    import_name,
-                    Source(source),
+        with self._engine.begin() as session:
+            for result in session.execute(
+                select(Name).where(Name.modname.startswith(name))
+            ):
+                parts = Name.modname.split(".")
+                import_name = parts[-1]
+                remaining = parts[0]
+                for part in parts[1:-1]:
+                    remaining += "."
+                    remaining += part
+                yield (
+                    SearchResult(
+                        f"from {remaining} import {import_name}",
+                        import_name,
+                        result.source,
+                        NameType.Module,
+                    )
+                )
+            for result in session.execute(
+                select(Name).where(Name.modname.startswith(name))
+            ):
+                if "." in result.modname:
+                    continue
+                yield SearchResult(
+                    f"import {result.modname}",
+                    result.modname,
+                    result.source,
                     NameType.Module,
                 )
-            )
-        for module, source in self.connection.execute(
-            "Select module, source from names where module LIKE (?)", (name,)
-        ):
-            if "." in module:
-                continue
-            yield SearchResult(
-                f"import {module}", module, Source(source), NameType.Module
-            )
 
     def _dump_all(self) -> tuple[list[Name], list[Package]]:
         """Dump the entire database."""
-        name_results = self.connection.execute("select * from names").fetchall()
-        package_results = self.connection.execute("select * from packages").fetchall()
+        with self._engine.begin() as session:
+            name_results = session.execute(select(Name))
+            package_results = session.execute(select(Package))
         return name_results, package_results
 
     def sync(self, task_handle: taskhandle.BaseTaskHandle | None = None):
@@ -251,24 +244,23 @@ class AutoImport:
         if files is not None:
             assert package_names is None  # Cannot have both package_names and files.
             for file in files:
-                to_index.append(
-                    (self._path_to_module(file, underlined), self.project_package)
-                )
+                to_index.append((self._path_to_module(file), self.project_package))
         else:
+            self._update_packages()
             if package_names is None:
-                packages = self._get_available_packages()
+                packages = None
             else:
                 for modname in package_names:
                     package = self._find_package_path(modname)
                     if package is None:
                         continue
                     packages.append(package)
-            packages = list(filter_packages(packages, underlined, existing))
+            packages = list(filter_packages(packages, existing))
             for package in packages:
-                for module in get_files(package, underlined):
+                for module in get_files(package):
                     to_index.append((module, package))
             self._add_packages(packages)
-        self._index(to_index, underlined, task_handle, single_thread)
+        self._index(to_index, task_handle, single_thread)
 
     def _to_index(self) -> list[Package]:
         return list(filter((lambda package: package.indexed, self._packages)))
@@ -276,7 +268,6 @@ class AutoImport:
     def _index(
         self,
         to_index: list[tuple[ModuleInfo, Package]],
-        underlined: bool,
         task_handle: taskhandle.BaseTaskHandle | None,
         single_thread: bool,
     ) -> None:
@@ -294,18 +285,14 @@ class AutoImport:
                     self._add_name(name)
                     job_set.finished_job()
         else:
-            for future_name in as_completed(
-                _get_future_names(to_index, underlined, job_set)
-            ):
+            for future_name in as_completed(_get_future_names(to_index, job_set)):
                 self._add_names(future_name.result())
                 job_set.finished_job()
 
-        self.connection.commit()
-
     def close(self) -> None:
         """Close the autoimport database."""
-        self.connection.commit()
-        self.connection.close()
+        # self.connection.commit()
+        # self.connection.close()
 
     def clear_cache(self) -> None:
         """Clear all entries in global-name cache.
@@ -316,13 +303,12 @@ class AutoImport:
         """
         self.connection.execute("drop table names")
         self._setup_db()
-        self.connection.commit()
 
     def update_path(self, path: Path) -> None:
         """Update the cache for global names in `resource`."""
         module = self._path_to_module(path)
-        self._del_if_exist(module_name=module.modname, commit=False)
-        self._generate_cache(files=[path], underlined=underlined)
+        self._del_if_exist(module_name=module.modname)
+        self._generate_cache(files=[path])
 
     def update_package(self, package: str) -> None:
         if package in self._packages:
@@ -340,9 +326,8 @@ class AutoImport:
             self._generate_cache(files=[new_path])
 
     def _del_if_exist(self, module_name: str, commit: bool = True) -> None:
-        self.connection.execute("delete from names where module = ?", (module_name,))
-        if commit:
-            self.connection.commit()
+        with self._engine.begin() as session:
+            session.execute(delete(Name).where(Name.modname == module_name))
 
     def _get_python_folders(self) -> list[Path]:
         def filter_folders(folder: Path) -> bool:
@@ -356,25 +341,22 @@ class AutoImport:
     def update_module(self, module: str) -> None:
         self._generate_cache(package_names=[module])
 
-    def _get_available_packages(self) -> None:
-
+    def _update_packages(self) -> None:
+        packages: set[Package] = None
         for folder in self._get_python_folders():
             for package in folder.iterdir():
                 package_tuple = get_package_tuple(package, self.project)
                 if package_tuple is None:
                     continue
                 packages.append(package_tuple)
-        return packages
 
     def _add_packages(self, packages: list[Package]) -> None:
-        for package in packages:
-            self.connection.execute("INSERT into packages values(?)", (package.name,))
+        with self._session() as session:
+            session.add_all(packages)
 
-    def _get_existing(self) -> list[str]:
-        existing: list[str] = list(
-            chain(*self.connection.execute("select * from packages").fetchall())
-        )
-        existing.append(self.project_package.name)
+    def _get_existing(self) -> list[Package]:
+        with self._engine.begin() as session:
+            existing = session.execute(select(Package).where(Package.indexed == True))
         return existing
 
     def remove(self, location: Path) -> None:
@@ -386,20 +368,12 @@ class AutoImport:
             self._del_if_exist(modname)
 
     def _add_names(self, names: Iterable[Name]) -> None:
-        for name in names:
-            self._add_name(name)
+        with self._session() as session:
+            session.add_all(names)
 
     def _add_name(self, name: Name) -> None:
-        self.connection.execute(
-            "insert into names values (?,?,?,?,?)",
-            (
-                name.name,
-                name.modname,
-                name.package,
-                name.source.value,
-                name.name_type.value,
-            ),
-        )
+        with self._engine.begin() as session:
+            session.add(name)
 
     def _find_package_path(self, target_name: str) -> Package | None:
         if target_name in sys.builtin_module_names:
@@ -423,12 +397,11 @@ class AutoImport:
             path, self.project, add_package_name=False
         )
         underlined = (
-            True if (self.underlined in Underlined.PROJECT, Underlined.ALL) else False
+            True if (self.underlined in (Underlined.PROJECT, Underlined.ALL)) else False
         )
         return ModuleFile(
             path,
             resource_modname,
-            underlined,
             path.name == "__init__.py",
         )
 

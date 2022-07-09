@@ -14,7 +14,8 @@ class Prefs:
     )
     dependencies: list[str] | None = field(default=None, init=False)
     _dependencies: list[Requirement] | None = field(
-        universal_config=UniversalKey.dependencies, default=None)
+        universal_config=UniversalKey.dependencies, default=None
+    )
     _optional_dependencies: dict[str, list[Requirement]] | None = field(
         universal_config=UniversalKey.optional_dependencies, default=None
     )

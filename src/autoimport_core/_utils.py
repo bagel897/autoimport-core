@@ -38,7 +38,40 @@ def get_package_tuple(
         package_type = PackageType.STANDARD
     package_source: Source = get_package_source(package_path, project, package_name)
     modified_time = package_path.stat().st_mtime
-    return Package(package_name, package_source, package_path, package_type, modified_time)
+    return Package(
+        package_name, package_source, package_path, package_type, modified_time
+    )
+
+
+def is_valid_package(
+    package_path: pathlib.Path, project: pathlib.Path | None = None
+) -> bool:
+    """
+    Get package name and type from a path.
+
+    Checks for common issues, such as not being a viable python module
+    Returns None if not a viable package.
+    """
+    package_name = package_path.name
+    package_type: PackageType
+    if package_name.startswith(".") or package_name == "__pycache__":
+        return False
+    if package_name.endswith((".egg-info", ".dist-info")):
+        return False
+    if package_path.is_file():
+        if package_name.endswith(".so"):
+            package_name = package_name.split(".")[0]
+            package_type = PackageType.COMPILED
+        elif package_name.endswith(".py"):
+            package_name = package_path.stem
+            package_type = PackageType.SINGLE_FILE
+        else:
+            return False
+    else:
+        package_type = PackageType.STANDARD
+    package_source: Source = get_package_source(package_path, project, package_name)
+    modified_time = package_path.stat().st_mtime
+    return False
 
 
 def get_package_source(

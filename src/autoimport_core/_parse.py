@@ -32,7 +32,7 @@ def get_type_ast(node: ast.AST) -> NameType:
 
 def get_names_from_file(
     module: pathlib.Path,
-    package_name: str = "",
+    package_name: str,
     underlined: bool = False,
     process_imports: bool = False,
 ) -> Generator[PartialName, None, None]:
@@ -90,7 +90,7 @@ def get_names(module: ModuleInfo, package: Package) -> list[Name]:
     """Get all names from a module and package."""
     if isinstance(module, ModuleCompiled):
         return list(
-            get_names_from_compiled(package.name, package.source, module.underlined)
+            get_names_from_compiled(package)
         )
     if isinstance(module, ModuleFile):
         return [
@@ -98,7 +98,7 @@ def get_names(module: ModuleInfo, package: Package) -> list[Name]:
             for partial_name in get_names_from_file(
                 module.filepath,
                 package.name,
-                underlined=module.underlined,
+                underlined=package.underlined,
                 process_imports=module.process_imports,
             )
         ]
@@ -106,9 +106,7 @@ def get_names(module: ModuleInfo, package: Package) -> list[Name]:
 
 
 def get_names_from_compiled(
-    package: str,
-    source: Source,
-    underlined: bool = False,
+    package: Package,
 ) -> Generator[Name, None, None]:
     """
     Get the names from a compiled module.
@@ -124,28 +122,28 @@ def get_names_from_compiled(
     # builtins is banned because you never have to import it
     # python_crun is banned because it crashes python
     banned = ["builtins", "python_crun"]
-    if package in banned or (package.startswith("_") and not underlined):
+    if package.name in banned or (
+        package.name.startswith("_") and not package.underlined
+    ):
         return  # Builtins is redundant since you don't have to import it.
-    if source not in (Source.BUILTIN, Source.STANDARD):
+    if package.source not in (Source.BUILTIN, Source.STANDARD):
         return
     try:
-        module = import_module(str(package))
+        module = import_module(str(package.name))
     except ImportError:
         logger.error(f"{package} could not be imported for autoimport analysis")
         return
     else:
         for name, value in inspect.getmembers(module):
-            if underlined or not name.startswith("_"):
+            if package.underlined or not name.startswith("_"):
                 if (
                     inspect.isclass(value)
                     or inspect.isfunction(value)
                     or inspect.isbuiltin(value)
                 ):
-                    yield Name(
-                        str(name), package, package, source, get_type_object(value)
-                    )
+                    yield Name(str(name), package, package, get_type_object(value))
 
 
 def combine(package: Package, module: ModuleFile, name: PartialName) -> Name:
     """Combine information to form a full name."""
-    return Name(name.name, module.modname, package.name, package.source, name.name_type)
+    return Name(name.name, module.modname, package, name.name_type)
