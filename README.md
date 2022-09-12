@@ -1,3 +1,5 @@
+## Archived
+Since rope's maintainers have continued improvements in rope, development will hapen there.
 # autoimport-core
 
 [![Actions Status][actions-badge]][actions-link]
